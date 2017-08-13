@@ -2,6 +2,16 @@ package org.rawkintrevo.cylon
 
 import java.io._
 
+/**
+  * This is an example of an extremely stupid way (and consequently the way Flink does RocksDB) to handle the JNI problem.
+  *
+  * DO NOT USE!!
+  *
+  * Basically we include libopencv_java330.so in src/main/resources so then it creates a tmp version.
+  *
+  * I deleted from it resources, so this would fail.  Only try it for academic purposes. E.g. to see what stupid looks like.
+  *
+  */
 object NativeUtils {
   // heavily based on https://github.com/adamheinrich/native-utils/blob/master/src/main/java/cz/adamh/utils/NativeUtils.java
   def loadOpenCVLibFromJar() = {

@@ -132,7 +132,7 @@
           </filesets>
         </configuration>
       </plugin>
-      <!-- copy jars to top directory, which is MAHOUT_HOME -->
+      <!-- copy jars to bin -->
       <plugin>
         <artifactId>maven-antrun-plugin</artifactId>
         <version>1.4</version>

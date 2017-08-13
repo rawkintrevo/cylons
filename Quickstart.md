@@ -72,9 +72,9 @@ Copy OpenCV jar and binary to Flink Libraries Folder as well as the static loade
 This is required to avoid a variety of experiences of the dreaded
 `java.lang.UnsatisfiedLinkError`
 	
-Now you can run the Flink engin (which marks up with detected faces)
+Now you can run the Flink face detection demo (which marks up with detected faces)
 
-`$FLINK_HOME/bin/flink run /home/rawkintrevo/gits/cylon-blog/flinkengine/target/flink-engine-1.0-SNAPSHOT.jar`
+`$CYLON_HOME/bin/test-flink-faces.sh`
 
 # Observer
 

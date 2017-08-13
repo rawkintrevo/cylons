@@ -2,8 +2,8 @@ package org.rawkintrevo.cylon.frameprocessors
 
 import java.awt.{Color, Font}
 
-import org.opencv.core.{CvType, Mat, MatOfByte, MatOfRect}
-import java.awt.image.{BufferedImage, DataBufferByte}
+import org.opencv.core.{ Mat, MatOfByte, MatOfRect}
+import java.awt.image.{BufferedImage}
 import java.io.ByteArrayInputStream
 import javax.imageio.ImageIO
 
@@ -12,23 +12,6 @@ import org.opencv.imgproc.Imgproc
 import org.opencv.objdetect.CascadeClassifier
 
 object FaceDetectorProcessor extends FrameProcessor with Serializable {
-
-  var inputRawImage: BufferedImage = _
-  var inputMarkupImage: Option[BufferedImage] = _
-  var outputMarkupImage: BufferedImage = _
-
-  var mat: Mat = _
-  //val mat: Mat = bufferedImageToMat(inputRawImage)
-
-  def bufferedImageToMat(bi: BufferedImage): Unit = {
-    // FrameProcessor.loadNative
-    // https://stackoverflow.com/questions/14958643/converting-bufferedimage-to-mat-in-opencv
-    mat= new Mat(bi.getHeight, bi.getWidth, CvType.CV_8UC3)
-    val data = bi.getRaster.getDataBuffer.asInstanceOf[DataBufferByte].getData
-    mat.put(0, 0, data)
-
-  }
-
   var faceRects: Array[MatOfRect] = _
 
   var faceXmlPaths: Array[String] = _
