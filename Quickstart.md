@@ -1,13 +1,22 @@
 
 # Build
 
-### Build OpenCV
+It goes without saying you should be running Linux, like a grown up. 
 
-**KMAG YOYO**
+I'm on Ubuntu 17.04 for whatever that is worth.
+
+### Build OpenCV 3.3.0
+
+Helpful links.
+
+[K.M.A.G. Y.O.Y.O](http://www.urbandictionary.com/define.php?term=KMAG%20YOYO)
+
+[May the odds forever be in your favor](http://opencv-java-tutorials.readthedocs.io/en/latest/01-installing-opencv-for-java.html)
 
 ### Build Cylon
 
-	export CYLON_HOME=/path/to/checkout
+	git clone https://github.com/rawkintrevo/cylons
+	export CYLON_HOME=/path/to/cylons
 	cd $CYLON_HOME
 	mvn clean package
 
@@ -72,5 +81,6 @@ Now you can run the Flink engin (which marks up with detected faces)
 You should be able to see some interesting things at:
 
 [http://localhost:8090/cylon/cam/test/test](http://localhost:8090/cylon/cam/test/test)
+
 [http://localhost:8090/cylon/cam/test-flink/test](http://localhost:8090/cylon/cam/test-flink/test)
 

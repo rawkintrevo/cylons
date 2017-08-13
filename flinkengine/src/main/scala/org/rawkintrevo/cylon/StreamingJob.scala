@@ -38,12 +38,9 @@ import org.slf4j.{Logger, LoggerFactory}
 object StreamingJob {
   def main(args: Array[String]) {
 
-    //System.loadLibrary(Core.NATIVE_LIBRARY_NAME)
-
-    //NativeUtils.loadOpenCVLibFromJar()
-    //  FrameProcessor.loadNative
-
     val env = StreamExecutionEnvironment.getExecutionEnvironment
+
+    env.setParallelism(2)
 
     val properties = new Properties()
     properties.setProperty("bootstrap.servers", "localhost:9092")
@@ -65,8 +62,6 @@ object StreamingJob {
         .map(record => {
           val key = record._1
           val image = record._2
-
-
           (key, FaceDetectorProcessor.process(image) )
         } )
       .addSink(kafkaProducer)
