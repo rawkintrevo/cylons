@@ -94,7 +94,8 @@ object CalcEigenfacesApp {
         */
 
       drmParallelize(colMeansInCore, 1).dfsWrite("file:///home/rawkintrevo/gits/cylon-blog/data/colMeans")
-      drmParallelize(drmV, 1).dfsWrite("file:///home/rawkintrevo/gits/cylon-blog/data/eigenfaces")
+
+      drmParallelize(drmV, 3).dfsWrite("file:///home/rawkintrevo/gits/cylon-blog/data/eigenfaces")
     } getOrElse {
       // arguments are bad, usage message will have been displayed
     }
