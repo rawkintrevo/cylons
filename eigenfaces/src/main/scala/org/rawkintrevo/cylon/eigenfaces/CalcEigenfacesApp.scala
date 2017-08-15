@@ -24,7 +24,7 @@ object CalcEigenfacesApp {
                        inputTopic: String = "flink",
                        outputTopic: String = "test-flink",
                        droneName: String = "test",
-                       parallelism: Int = 1
+                       parallelism: Int = 50
                      )
 
     val parser = new scopt.OptionParser[Config]("scopt") {
@@ -41,8 +41,8 @@ object CalcEigenfacesApp {
       opt[String]('o', "outputTopic").optional()
         .action((x, c) => c.copy(outputTopic = x))
 
-      opt[Int]('p', "parallelism").optional()
-        .action((x, c) => c.copy(parallelism = 1))
+      opt[Int]('p', "parallelism. default: 50").optional()
+        .action((x, c) => c.copy(parallelism = x))
 
       help("help").text("prints this usage text")
     }
@@ -56,19 +56,23 @@ object CalcEigenfacesApp {
         .set("spark.kryo.referenceTracking", "false")
         .set("spark.kryoserializer.buffer", "32k")
         .set("spark.kryoserializer.buffer.max", "1g")
+        .set("spark.executor.memory", "22g")
+        .set("spark.driver.memory", "2g")
 
       val sc = new SparkContext(sparkConf)
 
       implicit val sdc: org.apache.mahout.sparkbindings.SparkDistributedContext = sc2sdc(sc)
 
-      val imagesRDD: DrmRdd[Int] = sc.binaryFiles("/home/rawkintrevo/gits/cylon-blog/data/lfw-deepfunneled/*/*", 500)
+      val par = config.parallelism // When using OMP you want as little parallelization as possible
+      val imagesRDD: DrmRdd[Int] = sc.binaryFiles("/home/rawkintrevo/gits/cylon-blog/data/lfw-deepfunneled/*/*", par)
         .map(o => new DenseVector(
           ImageUtils.bufferedImageToDoubleArray(
             ImageIO.read(new ByteArrayInputStream(o._2.toArray())))))
         .zipWithIndex
         .map(o => (o._2.toInt, o._1)) // Make the Index the first value of the tuple
 
-      val imagesDRM = drmWrap(rdd = imagesRDD).par(min = 500).checkpoint()
+
+      val imagesDRM = drmWrap(rdd = imagesRDD).checkpoint()
 
       println(s"Dataset: ${imagesDRM.nrow} images, ${imagesDRM.ncol} pixels per image")
 

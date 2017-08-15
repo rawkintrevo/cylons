@@ -9,7 +9,7 @@
   <artifactId>spark-eigenfaces</artifactId>
   <inceptionYear>2008</inceptionYear>
   <properties>
-    <scala.version>2.10.6</scala.version>
+    <scala.version>2.10.6</scala.version> <!-- bc of Mahout 0.13.0 -->
   </properties>
 
   <repositories>
@@ -18,7 +18,9 @@
       <name>Scala-Tools Maven2 Repository</name>
       <url>http://scala-tools.org/repo-releases</url>
     </repository>
+
   </repositories>
+
 
   <pluginRepositories>
     <pluginRepository>
@@ -58,6 +60,20 @@
     <dependency>
       <groupId>org.apache.mahout</groupId>
       <artifactId>mahout-spark_2.10</artifactId>
+      <version>0.13.0</version>
+    </dependency>
+
+    <!-- I'm cheating here, I have built Mahout locally with `mvn clean install -Pviennacl-omp`
+     This accelerates Mahout with Native CPU calls, yuuuge speedup, but unless you install Mahout from source
+     with the `-Pviennacl-omp` profile, you can't use this (e.g. its not in maven repos until 0.13.1)
+
+     (You may need to `sudo apt-get install libviennacl-dev` first.)
+
+     Other option is to just comment this out- but man it runs like a dog.
+    -->
+    <dependency>
+      <groupId>org.apache.mahout</groupId>
+      <artifactId>mahout-native-viennacl-omp_2.10</artifactId>
       <version>0.13.0</version>
     </dependency>
 

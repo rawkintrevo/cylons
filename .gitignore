@@ -4,8 +4,8 @@
 *jar
 *iml
 cylon-blog.iml
-data/*
-
+data/lfw-deepfunneled
+*log
 
 
 
