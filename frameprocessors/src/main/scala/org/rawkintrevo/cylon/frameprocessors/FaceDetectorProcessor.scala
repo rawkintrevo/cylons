@@ -26,15 +26,10 @@ object FaceDetectorProcessor extends FrameProcessor with Serializable {
     faceCascades = faceXmlPaths.map(s => new CascadeClassifier(s))
   }
 
+
   def createFaceRects(): Array[MatOfRect] = {
 
-    var greyMat = new Mat();
-    var equalizedMat = new Mat()
-
-    // Convert matrix to greyscale
-    Imgproc.cvtColor(mat, greyMat, Imgproc.COLOR_RGB2GRAY)
-    // based heavily on https://chimpler.wordpress.com/2014/11/18/playing-with-opencv-in-scala-to-do-face-detection-with-haarcascade-classifier-using-a-webcam/
-    Imgproc.equalizeHist(greyMat, equalizedMat)
+    val equalizedMat = ImageUtils.grayAndEqualizeMat(mat)
 
     faceRects = (0 until faceCascades.length).map(i => new MatOfRect()).toArray // will hold the rectangles surrounding the detected faces
 
@@ -73,7 +68,7 @@ object FaceDetectorProcessor extends FrameProcessor with Serializable {
   }
 
   def process(image: BufferedImage): BufferedImage = {
-    bufferedImageToMat(image)
+    mat = ImageUtils.bufferedImageToMat(image)
     inputMarkupImage = Some(image)
     initCascadeFilters(Array("/home/rawkintrevo/gits/opencv/data/haarcascades/haarcascade_profileface.xml",
       "/home/rawkintrevo/gits/opencv/data/haarcascades/haarcascade_frontalface_default.xml",

@@ -17,11 +17,4 @@ trait FrameProcessor extends Serializable {
   var mat: Mat = _
   //val mat: Mat = bufferedImageToMat(inputRawImage)
 
-  def bufferedImageToMat(bi: BufferedImage): Unit = {
-    // https://stackoverflow.com/questions/14958643/converting-bufferedimage-to-mat-in-opencv
-    mat= new Mat(bi.getHeight, bi.getWidth, CvType.CV_8UC3)
-    val data = bi.getRaster.getDataBuffer.asInstanceOf[DataBufferByte].getData
-    mat.put(0, 0, data)
-
-  }
 }

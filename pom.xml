@@ -13,7 +13,8 @@
     <module>dronecam2kafka</module>
     <module>frameprocessors</module>
     <module>httpserver</module>
-    <module>flinkengine</module>
+    <module>flink-faces-demo</module>
+    <module>eigenfaces</module>
 
 
   </modules>
