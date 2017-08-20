@@ -4,7 +4,7 @@ import java.awt.image.{BufferedImage, DataBufferByte}
 
 import org.opencv.core.{CvType, Mat}
 import org.opencv.imgproc.Imgproc
-import org.rawkintrevo.cylon.frameprocessors.FaceDetectorProcessor.mat
+
 
 object ImageUtils {
 
@@ -17,6 +17,7 @@ object ImageUtils {
     mat.put(0, 0, data)
     mat
   }
+
 
   def grayAndEqualizeMat(mat: Mat): Mat = {
     var greyMat = new Mat();

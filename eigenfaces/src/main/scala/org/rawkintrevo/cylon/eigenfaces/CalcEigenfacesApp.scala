@@ -1,45 +1,38 @@
 package org.rawkintrevo.cylon.eigenfaces
 
-import java.awt.image.{BufferedImage, BufferedImageOp}
 import java.io.ByteArrayInputStream
 import javax.imageio.ImageIO
 
 import org.apache.mahout.math._
-import org.apache.mahout.math.decompositions._
-import org.apache.mahout.math.scalabindings._
-import org.apache.mahout.math.drm._
-import org.apache.mahout.math.scalabindings.RLikeOps._
 import org.apache.mahout.math.algorithms.preprocessing.MeanCenter
-
-import org.apache.mahout.math.drm.RLikeDrmOps._
+import org.apache.mahout.math.decompositions._
+import org.apache.mahout.math.drm._
+import org.apache.mahout.math.scalabindings._
 import org.apache.mahout.sparkbindings._
 import org.apache.spark.{SparkConf, SparkContext}
+import org.rawkintrevo.cylon.eigenfaces.mahout.MahoutUtils
 import org.rawkintrevo.cylon.frameprocessors.ImageUtils
 
 object CalcEigenfacesApp {
   def main(args: Array[String]): Unit = {
+    val cylon_home = scala.util.Properties.envOrElse("CYLON_HOME", "../" )
     case class Config(
-
-                       bootStrapServers: String = "localhost:9092",
-                       inputTopic: String = "flink",
-                       outputTopic: String = "test-flink",
+                       inputDirectory: String = cylon_home + "/data/lfw-deepfunneled",
+                       outputDirectory: String = cylon_home + "/data/eigenfaces",
                        droneName: String = "test",
                        parallelism: Int = 50
                      )
 
     val parser = new scopt.OptionParser[Config]("scopt") {
-      head("FlinkEngineDemo", "1.0-SNAPSHOT")
+      head("Eigenface Calculator", "1.0-SNAPSHOT")
 
-      opt[String]('b', "bootstrapServers").optional()
-        .action((x, c) => c.copy(bootStrapServers = x))
-        .text("Kafka Bootstrap Servers. Default: localhost:9092")
+      opt[String]('i', "inputDirectory").optional()
+        .action((x, c) => c.copy(inputDirectory = x))
+        .text("Input Directory of lfw-deepfunneled. Default: $CYLON_HOME/data/lfw-deepfunneled")
 
-      opt[String]('i', "inputTopic").optional()
-        .action((x, c) => c.copy(inputTopic = x))
-        .text("Input Kafka Topic. Default: test")
-
-      opt[String]('o', "outputTopic").optional()
-        .action((x, c) => c.copy(outputTopic = x))
+      opt[String]('o', "outputDirectory").optional()
+        .action((x, c) => c.copy(outputDirectory = x))
+        .text("Output directory to save results to. Default: $CYLON_HOME/data/eigenfaces ")
 
       opt[Int]('p', "parallelism. default: 50").optional()
         .action((x, c) => c.copy(parallelism = x))
@@ -64,7 +57,9 @@ object CalcEigenfacesApp {
       implicit val sdc: org.apache.mahout.sparkbindings.SparkDistributedContext = sc2sdc(sc)
 
       val par = config.parallelism // When using OMP you want as little parallelization as possible
-      val imagesRDD: DrmRdd[Int] = sc.binaryFiles("/home/rawkintrevo/gits/cylon-blog/data/lfw-deepfunneled/*/*", par)
+      // todo utilize CYLON_HOME
+
+      val imagesRDD: DrmRdd[Int] = sc.binaryFiles(config.inputDirectory + "/*/*5*", par)
         .map(o => new DenseVector(
           ImageUtils.bufferedImageToDoubleArray(
             ImageIO.read(new ByteArrayInputStream(o._2.toArray())))))
@@ -85,7 +80,7 @@ object CalcEigenfacesApp {
       val mcImagesDrm = mcModel.transform(imagesDRM)
 
       val numberOfEigenfaces = 130
-      val (drmU, drmV, s) = dssvd(mcImagesDrm, k = 130, p = 15, q = 0)
+      val (drmU, drmV, s) = dssvd(mcImagesDrm, k = 30, p = 15, q = 0)
 
       /**
         * drmV -> Eignfaces (transposed) need to load this into Flink engine
@@ -93,9 +88,18 @@ object CalcEigenfacesApp {
         * -- Or don't only required if we're going to match celebrities.
         */
 
-      drmParallelize(colMeansInCore, 1).dfsWrite("file:///home/rawkintrevo/gits/cylon-blog/data/colMeans")
 
-      drmParallelize(drmV, 3).dfsWrite("file:///home/rawkintrevo/gits/cylon-blog/data/eigenfaces")
+      // Todo: make this a config (at least the directory)
+
+        MahoutUtils.matrixWriter(colMeansInCore, config.outputDirectory + "/colMeans.mmat")
+
+        import org.apache.mahout.math.scalabindings.MahoutCollections._
+        //drmV.rdd.map(row => row._2.toArray.mkString(",")).coalesce(1).saveAsTextFile(config.outputDirectory + "/eigenfaces.mmat")
+        MahoutUtils.matrixWriter(drmV.collect, config.outputDirectory + "/eigenfaces.mmat")
+
+      // Stupid- can't read it into flink if you do this
+//      drmParallelize(colMeansInCore, 1).dfsWrite("file:///home/rawkintrevo/gits/cylon-blog/data/colMeans")
+//      drmParallelize(drmV, 3).dfsWrite("file:///home/rawkintrevo/gits/cylon-blog/data/eigenfaces")
     } getOrElse {
       // arguments are bad, usage message will have been displayed
     }

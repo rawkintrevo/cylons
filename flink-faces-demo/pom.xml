@@ -26,7 +26,7 @@ under the License.
   </parent>
   <modelVersion>4.0.0</modelVersion>
 
-  <artifactId>flink-engine</artifactId>
+  <artifactId>flink-faces-demo</artifactId>
   <packaging>jar</packaging>
 
   <name>Flink Quickstart Job</name>
@@ -124,6 +124,11 @@ under the License.
     <dependency>
       <groupId>org.rawkintrevo.cylon</groupId>
       <artifactId>frame-processors</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.rawkintrevo.cylon</groupId>
+      <artifactId>flink-engine</artifactId>
       <version>${project.version}</version>
     </dependency>
   </dependencies>

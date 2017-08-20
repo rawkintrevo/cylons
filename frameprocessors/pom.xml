@@ -9,7 +9,7 @@
   <artifactId>frame-processors</artifactId>
   <inceptionYear>2008</inceptionYear>
   <properties>
-    <scala.version>2.11.8</scala.version>
+    <scala.version>2.10.6</scala.version>
   </properties>
 
   <repositories>
