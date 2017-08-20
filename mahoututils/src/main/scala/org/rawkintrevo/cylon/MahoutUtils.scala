@@ -32,6 +32,6 @@ object MahoutUtils {
     // Basically just OLS- prob put the meancentering here too.
     val XtX = m.t %*% m
     val Xty = m.t %*% v
-    solve(XtX, Xty)
+    solve(XtX, Xty).viewPart(3, m.numCols()-3)
   }
 }

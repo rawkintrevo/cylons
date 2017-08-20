@@ -89,6 +89,14 @@
       <artifactId>mahout-utils</artifactId>
       <version>1.0-SNAPSHOT</version>
     </dependency>
+
+
+    <dependency>
+      <artifactId>solr-solrj</artifactId>
+      <groupId>org.apache.solr</groupId>
+      <version>6.6.0</version>
+    </dependency>
+
   </dependencies>
 
   <build>
