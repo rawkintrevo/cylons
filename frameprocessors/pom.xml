@@ -6,10 +6,11 @@
     <version>1.0-SNAPSHOT</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
-  <artifactId>frame-processors</artifactId>
+  <artifactId>frame-processors_2.10</artifactId>
   <inceptionYear>2008</inceptionYear>
   <properties>
     <scala.version>2.10.6</scala.version>
+    <!--<scala.version>2.11.6</scala.version>-->
   </properties>
 
   <repositories>

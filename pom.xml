@@ -11,13 +11,13 @@
   <modules>
     <!--<module>opencv</module>-->
     <module>mahoututils</module>
-    <!--<module>dronecam2kafka</module>-->
+    <module>dronecam2kafka</module>
     <module>frameprocessors</module>
     <module>local-engine</module>
-    <!--<module>httpserver</module>-->
+    <module>httpserver</module>
     <!--<module>flink-engine</module>-->
     <!--<module>flink-faces-demo</module>-->
-    <!--<module>eigenfaces</module>-->
+    <module>eigenfaces</module>
 
     <!--<module>kafkaengine</module>-->
     <!--<module>kafkaengine</module>-->

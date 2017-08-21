@@ -1,4 +1,4 @@
-package org.rawkintrevo.cylon.flink
+package org.rawkintrevo.cylon
 
 import org.http4s.server.blaze.BlazeBuilder
 import org.http4s.util.StreamApp

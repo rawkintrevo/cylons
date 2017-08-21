@@ -20,7 +20,8 @@ object CalcEigenfacesApp {
                        inputDirectory: String = cylon_home + "/data/lfw-deepfunneled",
                        outputDirectory: String = cylon_home + "/data/eigenfaces",
                        droneName: String = "test",
-                       parallelism: Int = 50
+                       parallelism: Int = 50,
+                       kEigenfaces: Int = 130
                      )
 
     val parser = new scopt.OptionParser[Config]("scopt") {
@@ -36,6 +37,9 @@ object CalcEigenfacesApp {
 
       opt[Int]('p', "parallelism. default: 50").optional()
         .action((x, c) => c.copy(parallelism = x))
+
+      opt[Int]('k', "number of eigenfaces to produces. default: 130").optional()
+        .action((x, c) => c.copy(kEigenfaces = x))
 
       help("help").text("prints this usage text")
     }
@@ -59,7 +63,7 @@ object CalcEigenfacesApp {
       val par = config.parallelism // When using OMP you want as little parallelization as possible
       // todo utilize CYLON_HOME
 
-      val imagesRDD: DrmRdd[Int] = sc.binaryFiles(config.inputDirectory + "/*/*5*", par)
+      val imagesRDD: DrmRdd[Int] = sc.binaryFiles(config.inputDirectory + "/*/*", par)
         .map(o => new DenseVector(
           ImageUtils.bufferedImageToDoubleArray(
             ImageIO.read(new ByteArrayInputStream(o._2.toArray())))))
@@ -79,8 +83,8 @@ object CalcEigenfacesApp {
 
       val mcImagesDrm = mcModel.transform(imagesDRM)
 
-      val numberOfEigenfaces = 130
-      val (drmU, drmV, s) = dssvd(mcImagesDrm, k = 30, p = 15, q = 0)
+      val numberOfEigenfaces = config.kEigenfaces
+      val (drmU, drmV, s) = dssvd(mcImagesDrm, k = numberOfEigenfaces, p = 15, q = 0)
 
       /**
         * drmV -> Eignfaces (transposed) need to load this into Flink engine

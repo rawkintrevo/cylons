@@ -123,14 +123,10 @@ under the License.
     <!-- Our Stuff -->
     <dependency>
       <groupId>org.rawkintrevo.cylon</groupId>
-      <artifactId>frame-processors</artifactId>
+      <artifactId>frame-processors_2.11</artifactId>
       <version>${project.version}</version>
     </dependency>
-    <dependency>
-      <groupId>org.rawkintrevo.cylon</groupId>
-      <artifactId>flink-engine</artifactId>
-      <version>${project.version}</version>
-    </dependency>
+
   </dependencies>
 
   <profiles>
@@ -318,7 +314,7 @@ under the License.
 
 							<transformers>
 								<transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-									<mainClass>org.rawkintrevo.cylon.FlinkEngineDemo</mainClass>
+									<mainClass>org.rawkintrevo.cylon.flink.FlinkEngineDemo</mainClass>
 								</transformer>
 							</transformers>
 

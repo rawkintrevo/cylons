@@ -102,6 +102,7 @@ object App {
       var framesSinceRecognizedFace = 0
       var lastRecognizedHuman = ""
 
+      var stateCounter = new Array[Int](5)
       // Frame Reader
       while (videoCapture.read(mat)) {
         val faceRects = FaceDetectorProcessor.createFaceRects(mat)
@@ -172,29 +173,113 @@ object App {
             solrClient.add(doc)
             logger.debug("Flushing new docs to solr")
             solrClient.commit()
+            humanName
           }
 
           val threshold: Double = config.distanceTolerance
 
+
+
+          def getDocsArray(response: QueryResponse): Array[SolrDocument] = {
+            val a = new Array[SolrDocument](response.getResults.size())
+            for (i <- 0 until response.getResults.size()) {
+              a(i) = response.getResults.get(i)
+            }
+            a
+          }
+
+          def lastRecognizedHumanStillPresent(response: QueryResponse): Boolean ={
+            val a = getDocsArray(response)
+            a.exists(_.get("name_s") == lastRecognizedHuman)
+          }
+
+          def lastRecognizedHumanDistance(response: QueryResponse): Double ={
+            val a = getDocsArray(response)
+            var output: Double = 1000000000
+            if (lastRecognizedHumanStillPresent(response)) {
+              output = a.filter(_.get("name_s") == lastRecognizedHuman)(0).get("calc_dist").asInstanceOf[Double]
+            }
+            output
+          }
+
+
           // todo: replace faceDecompVecArray(0) with for function and iterate
           val response = eigenFaceQuery(faceDecompVecArray(0))
 
+          // in essence canopy clustering....
+          /**
+            * // (1) Orig Point: new center
+            * If next dist(p1, p2) < d1 -> Same Point
+            * If next dist(p1, p2) < d2 -> maybe same point
+            * Else -> new center
+            */
+          // Need a buffer- e.g. needs to be outside looseTolerance for n-frames
+          val tightTolerance = 1500
+          val looseTolerance = 5500
+          val minFramesInState = 10
+
+          // (1)
           if (response.getResults.size() == 0) {
             logger.info("I'm a stupid baby- everyone is new to me.")
             insertNewFaceToSolr(faceDecompVecArray(0))
           }
 
+
           if (response.getResults.size() > 0) {
-            val bestName = response.getResults.get(0).get("name_s").asInstanceOf[String]
+            val bestName: String = response.getResults.get(0).get("name_s").asInstanceOf[String]
             val bestDist = response.getResults.get(0).get("calc_dist").asInstanceOf[Double]
-            logger.debug(s"${bestName}: ${bestDist}")
-            if (bestDist > threshold) {
-              // This is a serious event- need to be more sure (makes a mess real quick too), on frame out of threshhold and boom.
-              logger.info("I never forget a face, and I don't think I'd forget this ugly mug.")
-              insertNewFaceToSolr(faceDecompVecArray(0))
-            } else {
-              logger.info(s"I know you! You're $bestName, ${bestDist}")
+            if (lastRecognizedHuman.equals("")) {
+              lastRecognizedHuman = bestName
             }
+            if (lastRecognizedHumanDistance(response) < tightTolerance){   // State 0
+              stateCounter = new Array[Int](5)
+              logger.info(s"still $bestName")
+            } else if (lastRecognizedHumanDistance(response) < looseTolerance) { // State 1
+              stateCounter(1) += 1
+              logger.info(s"looks like $bestName")
+            } else if (bestDist < tightTolerance) {  // State 2
+              if (stateCounter(2) > minFramesInState){
+                lastRecognizedHuman = bestName
+                logger.info(s"oh hai $bestName ")
+                stateCounter = new Array[Int](5)
+              } else {stateCounter(2) += 1}
+            } else if (bestDist < looseTolerance) {  // State 3
+              stateCounter(3) += 1
+              logger.info(s"oh god it looks like $bestName, must be the clouds in eyes... $lastRecognizedHuman - ${lastRecognizedHumanDistance(response)} vs $bestDist")
+            } else { // State 4
+              if (stateCounter(4) > minFramesInState) {
+                lastRecognizedHuman = insertNewFaceToSolr(faceDecompVecArray(0))
+                stateCounter = new Array[Int](5)
+              } else {
+                //logger.info(s"no idea, but its been ${stateCounter(4)} frames")
+                stateCounter(4) += 1
+              }
+              // logging handled in subcall
+
+            }
+
+            println(s"$lastRecognizedHuman " + stateCounter.mkString(","))
+//            if (lastRecognizedHuman.equals(bestName)) {
+//              logger.debug(s"still $lastRecognizedHuman")
+//              framesSinceRecognizedFace = 0
+//            } else if (lastRecognizedHumanStillPresent(response)){
+//              // idk do nothing
+//              framesSinceRecognizedFace = 0
+//              logger.info(s"$lastRecognizedHuman is that you? Did you change your hair? $bestDist")
+//            } else if (framesSinceRecognizedFace < 10) { // at this point, last recognized human is gone, how long have they been gone?
+//              // todo make that a config variable (how long we wait)
+//              framesSinceRecognizedFace += 1
+//            } else if (bestDist < threshold) { // Now, it's been a while since we've seen the last human we knew- check for someone else we know.
+//              // todo could make this better- maybe keeping track of people we've seen at previous step
+//              lastRecognizedHuman = bestName
+//              framesSinceRecognizedFace = 0
+//              logger.info(s"oh hai $bestName")
+//            } else {
+//              // This is a serious event- need to be more sure (makes a mess real quick too), on frame out of threshhold and boom.
+//              logger.info("I never forget a face, and I don't think I'd forget this ugly mug.")
+//              insertNewFaceToSolr(faceDecompVecArray(0))
+//            }
+
           }
         }
       }
