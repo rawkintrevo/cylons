@@ -1,5 +1,5 @@
 
-# Build
+# Quickstart
 
 It goes without saying you should be running Linux, like a grown up. 
 
@@ -13,12 +13,40 @@ Helpful links.
 
 [May the odds forever be in your favor](http://opencv-java-tutorials.readthedocs.io/en/latest/01-installing-opencv-for-java.html)
 
+Set `OPEN_CV` env variable 
+	
+	export OPEN_CV=/path/to/your/opencv
+
 ### Build Cylon
 
 	git clone https://github.com/rawkintrevo/cylons
 	export CYLON_HOME=/path/to/cylons
 	cd $CYLON_HOME
 	mvn clean package
+
+### Start a Solr in Docker 
+
+**Install Docker** _if needed_.
+
+	sudo apt install docker.io
+	
+**Start Solr in Docker**
+
+	sudo docker run --name cylon_solr -d -p 8983:8983 -t solr
+	
+**Create core** `cylonfaces`
+
+	sudo docker exec -it --user=solr cylon_solr bin/solr create_core -c cylonfaces
+	
+### Run Local
+
+Make sure to set CYLON_HOME to the directory where you cloned this, OPEN_CV to the directory where
+you built OpenCV 3.x and Solr is running on localhost:8983 with the collection 'cylonfaces' available.
+
+
+
+
+### Full Blown (not working quite right atm)
 
 ### Start Apache Kafka 
 
