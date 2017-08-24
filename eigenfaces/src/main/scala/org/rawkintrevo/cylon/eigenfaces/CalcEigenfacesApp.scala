@@ -10,7 +10,7 @@ import org.apache.mahout.math.drm._
 import org.apache.mahout.math.scalabindings._
 import org.apache.mahout.sparkbindings._
 import org.apache.spark.{SparkConf, SparkContext}
-import org.rawkintrevo.cylon.eigenfaces.mahout.MahoutUtils
+import org.rawkintrevo.cylon.common.mahout.MahoutUtils
 import org.rawkintrevo.cylon.frameprocessors.ImageUtils
 
 object CalcEigenfacesApp {
@@ -53,8 +53,9 @@ object CalcEigenfacesApp {
         .set("spark.kryo.referenceTracking", "false")
         .set("spark.kryoserializer.buffer", "32k")
         .set("spark.kryoserializer.buffer.max", "1g")
-        .set("spark.executor.memory", "22g")
+        .set("spark.executor.memory", "16g")
         .set("spark.driver.memory", "2g")
+
 
       val sc = new SparkContext(sparkConf)
 

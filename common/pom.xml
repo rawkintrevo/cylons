@@ -6,13 +6,13 @@
     <version>1.0-SNAPSHOT</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
-  <artifactId>localengine</artifactId>
+  <artifactId>common</artifactId>
   <name>${project.artifactId}</name>
-  <description>My wonderfull scala app</description>
+  <description>Cylon Common</description>
   <inceptionYear>2015</inceptionYear>
   <licenses>
     <license>
-      <name>ASFv2</name>
+      <name>My License</name>
       <url>http://....</url>
       <distribution>repo</distribution>
     </license>
@@ -31,26 +31,7 @@
       <version>${scala.version}</version>
     </dependency>
 
-    <!-- Logging Stuff -->
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-api</artifactId>
-      <version>1.7.5</version>
-    </dependency>
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-log4j12</artifactId>
-      <version>1.7.5</version>
-    </dependency>
-
-    <!-- Need to build this local and copy it to your .m2 directory -->
-    <dependency>
-      <groupId>org.opencv</groupId>
-      <artifactId>opencv</artifactId>
-      <version>3.3.0</version>
-    </dependency>
-
-    <!-- Mahout -->
+    <!-- Mahout Stuff -->
     <dependency>
       <groupId>org.apache.mahout</groupId>
       <artifactId>mahout-math</artifactId>
@@ -63,37 +44,36 @@
       <version>${mahout.version}</version>
     </dependency>
 
-    <!-- Only for CLI Arg Parsing -->
     <dependency>
-      <groupId>com.github.scopt</groupId>
-      <artifactId>scopt_${scala.compat.version}</artifactId>
-      <version>3.6.0</version>
+      <groupId>org.apache.mahout</groupId>
+      <artifactId>mahout-spark_${spark.compat.version}_${scala.compat.version}</artifactId>
+      <version>${mahout.version}</version>
     </dependency>
 
     <dependency>
-      <groupId>org.rawkintrevo.cylon</groupId>
-      <artifactId>frame-processors_${scala.compat.version}</artifactId>
-      <version>1.0-SNAPSHOT</version>
+      <groupId>org.apache.mahout</groupId>
+      <artifactId>mahout-native-viennacl-omp_${scala.compat.version}</artifactId>
+      <version>${mahout.version}</version>
     </dependency>
 
     <dependency>
-      <groupId>org.rawkintrevo.cylon</groupId>
-      <artifactId>common</artifactId>
-      <version>1.0-SNAPSHOT</version>
+      <artifactId>solr-solrj</artifactId>
+      <groupId>org.apache.solr</groupId>
+      <version>6.6.0</version>
     </dependency>
-
-
-
 
     <dependency>
-      <groupId>org.apache.kafka</groupId>
-      <artifactId>kafka_${scala.compat.version}</artifactId>
-      <version>0.10.1.1</version>
+      <groupId>org.opencv</groupId>
+      <artifactId>opencv</artifactId>
+      <version>3.3.0</version>
     </dependency>
+
+
   </dependencies>
 
   <build>
-    <sourceDirectory>src/main/scala</sourceDirectory>
+    <sourceDirectory>src/main</sourceDirectory>
+
     <plugins>
       <plugin>
         <!-- see http://davidb.github.com/scala-maven-plugin -->
@@ -104,10 +84,11 @@
           <execution>
             <goals>
               <goal>compile</goal>
+
             </goals>
             <configuration>
               <args>
-                <!--<arg>-make:transitive</arg>-->
+
                 <arg>-dependencyfile</arg>
                 <arg>${project.build.directory}/.scala_dependencies</arg>
               </args>
@@ -130,31 +111,6 @@
           </includes>
         </configuration>
       </plugin>
-      <!-- Fat Jar -->
-      <!--<plugin>-->
-        <!--<artifactId>maven-assembly-plugin</artifactId>-->
-        <!--<configuration>-->
-          <!--<archive>-->
-            <!--<manifest>-->
-              <!--<addClasspath>true</addClasspath>-->
-              <!--<mainClass>org.rawkintrevo.cylon.App</mainClass>-->
-            <!--</manifest>-->
-          <!--</archive>-->
-          <!--<descriptorRefs>-->
-            <!--<descriptorRef>jar-with-dependencies</descriptorRef>-->
-          <!--</descriptorRefs>-->
-        <!--</configuration>-->
-        <!--<executions>-->
-          <!--<execution>-->
-            <!--<id>make-my-jar-with-dependencies</id>-->
-            <!--<phase>package</phase>-->
-            <!--<goals>-->
-              <!--<goal>single</goal>-->
-            <!--</goals>-->
-          <!--</execution>-->
-        <!--</executions>-->
-      <!--</plugin>-->
-
     </plugins>
   </build>
 </project>

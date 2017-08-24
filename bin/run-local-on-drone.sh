@@ -8,4 +8,4 @@ java -Dfile.encoding=UTF-8 -jar $CYLON_HOME/local-engine/target/localengine-1.0-
 	-c $OPEN_CV/data/haarcascades/haarcascade_frontalface_default.xml \
 	-e $CYLON_HOME/data/eigenfaces/eigenfaces.mmat \
 	-s http://localhost:8983/solr/cylonfaces \
-	-t 3500.0
+	-i

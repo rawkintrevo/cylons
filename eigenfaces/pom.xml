@@ -1,16 +1,13 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <parent>
-    <artifactId>blog</artifactId>
     <groupId>org.rawkintrevo.cylon</groupId>
+    <artifactId>cylon</artifactId>
     <version>1.0-SNAPSHOT</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
   <artifactId>spark-eigenfaces</artifactId>
-  <inceptionYear>2008</inceptionYear>
-  <properties>
-    <scala.version>2.10.6</scala.version> <!-- bc of Mahout 0.13.0 -->
-  </properties>
+  <inceptionYear>2017</inceptionYear>
 
   <repositories>
     <repository>
@@ -40,27 +37,27 @@
     <!-- Spark Stuff -->
     <dependency>
       <groupId>org.apache.spark</groupId>
-      <artifactId>spark-core_2.10</artifactId>
-      <version>1.6.3</version>
+      <artifactId>spark-core_${scala.compat.version}</artifactId>
+      <version>${spark.version}</version>
     </dependency>
 
     <!-- Mahout Stuff -->
     <dependency>
       <groupId>org.apache.mahout</groupId>
       <artifactId>mahout-math</artifactId>
-      <version>0.13.0</version>
+      <version>${mahout.version}</version>
     </dependency>
 
     <dependency>
       <groupId>org.apache.mahout</groupId>
-      <artifactId>mahout-math-scala_2.10</artifactId>
-      <version>0.13.0</version>
+      <artifactId>mahout-math-scala_${scala.compat.version}</artifactId>
+      <version>${mahout.version}</version>
     </dependency>
 
     <dependency>
       <groupId>org.apache.mahout</groupId>
-      <artifactId>mahout-spark_2.10</artifactId>
-      <version>0.13.0</version>
+      <artifactId>mahout-spark_${spark.compat.version}_${scala.compat.version}</artifactId>
+      <version>${mahout.version}</version>
     </dependency>
 
     <!-- I'm cheating here, I have built Mahout locally with `mvn clean install -Pviennacl-omp`
@@ -73,11 +70,17 @@
     -->
     <dependency>
       <groupId>org.apache.mahout</groupId>
-      <artifactId>mahout-native-viennacl-omp_2.10</artifactId>
-      <version>0.13.0</version>
+      <artifactId>mahout-native-viennacl-omp_${scala.compat.version}</artifactId>
+      <version>${mahout.version}</version>
     </dependency>
 
     <!-- Our Stuff -->
+    <dependency>
+      <groupId>org.rawkintrevo.cylon</groupId>
+      <artifactId>common</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
     <dependency>
       <groupId>org.rawkintrevo.cylon</groupId>
       <artifactId>frame-processors</artifactId>
