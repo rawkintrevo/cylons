@@ -72,7 +72,7 @@
 
     <dependency>
       <groupId>org.rawkintrevo.cylon</groupId>
-      <artifactId>frame-processors_${scala.compat.version}</artifactId>
+      <artifactId>frame-processors</artifactId>
       <version>1.0-SNAPSHOT</version>
     </dependency>
 

@@ -251,7 +251,7 @@ object FaceDetectorProcessor_v1 extends Serializable {
   // ** Lifting this old code to make a demo work quick and dirty -will refactor later
 
   //System.loadLibrary(Core.NATIVE_LIBRARY_NAME)
-  Class.forName("org.rawkintrevo.cylon.opencv.LoadNative")
+  Class.forName("org.rawkintrevo.cylon.common.opencv.LoadNative")
   //NativeUtils.loadOpenCVLibFromJar()
 
   var inputRawImage: BufferedImage = _
