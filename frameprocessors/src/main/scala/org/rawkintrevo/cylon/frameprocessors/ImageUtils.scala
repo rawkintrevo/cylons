@@ -8,7 +8,7 @@ import org.opencv.imgproc.Imgproc
 
 object ImageUtils {
 
-  Class.forName("org.rawkintrevo.cylon.opencv.LoadNative")
+  Class.forName("org.rawkintrevo.cylon.common.opencv.LoadNative")
 
   def bufferedImageToMat(bi: BufferedImage): Mat = {
     // https://stackoverflow.com/questions/14958643/converting-bufferedimage-to-mat-in-opencv
