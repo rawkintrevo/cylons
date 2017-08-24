@@ -1,20 +1,30 @@
 package org.rawkintrevo.cylon.examples.localfacialrecognition
 
+import java.awt.{Color, Font}
+import java.awt.image.{BufferedImage, DataBufferByte}
+import java.io.ByteArrayInputStream
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import javax.imageio.ImageIO
 
 import org.apache.mahout.math.{DenseVector, Vector}
 import org.apache.solr.common.{SolrDocument, SolrInputDocument}
-import org.opencv.core.{Mat, Size}
+import org.opencv.core._
+import org.opencv.imgcodecs.Imgcodecs
 import org.opencv.imgproc.Imgproc
+import org.opencv.objdetect.CascadeClassifier
 import org.opencv.videoio.VideoCapture
 import org.rawkintrevo.cylon.common.mahout.MahoutUtils
+import org.rawkintrevo.cylon.common.solr.CylonSolrClient
 import org.rawkintrevo.cylon.frameprocessors.{FaceDetectorProcessor, ImageUtils}
-import org.rawkintrevo.cylon.localengine.KafkaFaceDecomposer
+import org.rawkintrevo.cylon.localengine.{AbstractKafkaImageBroadcaster, KafkaFaceDecomposer}
+
 class SimpleKafkaFacialRecognition(topic: String, key: String)
-  extends KafkaFaceDecomposer(topic: String, key: String) {
+  extends KafkaFaceDecomposer(topic: String, key: String)
+  with AbstractKafkaImageBroadcaster {
 
   var threshold: Double = 2000.0
+
 
   override def run(): Unit = {
     Class.forName("org.rawkintrevo.cylon.common.opencv.LoadNative")
@@ -32,11 +42,22 @@ class SimpleKafkaFacialRecognition(topic: String, key: String)
     // Init variables needed /////////////////////////////////////////////////////////////////////////////////////////
     var mat = new Mat()
 
+    val solrClient = cylonSolrClient.solrClient
     var facesInView = 0
 
     var lastRecognizedHuman = ""
     var stateCounter = new Array[Int](5)
+
+
     while (videoCapture.read(mat)) {
+
+      // https://stackoverflow.com/questions/21066875/opencv-constants-captureproperty
+      val CV_CAP_PROP_FRAME_COUNT    =7
+      val CV_CAP_PROP_POS_FRAMES     =1
+      // Fast Forward to Latest Frame
+      val frame = videoCapture.get(CV_CAP_PROP_FRAME_COUNT)
+      videoCapture.set(CV_CAP_PROP_POS_FRAMES,frame-1)
+
       val faceRects = FaceDetectorProcessor.createFaceRects(mat)
 
       val faceArray = faceRects.toArray
@@ -54,6 +75,7 @@ class SimpleKafkaFacialRecognition(topic: String, key: String)
       // Decompose Image into linear combo of eigenfaces (which were calulated offline)
       val faceDecompVecArray: Array[Vector] = faceVecArray
         .map(v => MahoutUtils.decomposeImgVecWithEigenfaces(v.minus(colCentersV), eigenfacesInCore))
+
 
 //      for (vec <- faceDecompVecArray) {
 //        writeOutput(vec)
@@ -173,7 +195,6 @@ class SimpleKafkaFacialRecognition(topic: String, key: String)
           insertNewFaceToSolr(faceDecompVecArray(0))
         }
 
-
         if (response.getResults.size() > 0) {
           val bestName: String = response.getResults.get(0).get("name_s").asInstanceOf[String]
           val bestDist = response.getResults.get(0).get("calc_dist").asInstanceOf[Double]
@@ -210,8 +231,116 @@ class SimpleKafkaFacialRecognition(topic: String, key: String)
           println(s"$lastRecognizedHuman " + stateCounter.mkString(","))
 
         }
+
+        if (faceArray.length > 0){
+          FaceDetectorProcessor_v1.mat = mat
+          FaceDetectorProcessor_v1.initCascadeFilters(Array(""), Array(Color.GREEN), Array(lastRecognizedHuman))
+          FaceDetectorProcessor_v1.markupImage(Array(new MatOfRect(faceRects.rowRange(0,1))))
+          writeBufferedImageToKafka(topic, key, FaceDetectorProcessor_v1.outputMarkupImage)
+        }
+
       }
     }
 
+  }
+}
+
+
+object FaceDetectorProcessor_v1 extends Serializable {
+
+  // ** Lifting this old code to make a demo work quick and dirty -will refactor later
+
+  //System.loadLibrary(Core.NATIVE_LIBRARY_NAME)
+  Class.forName("org.rawkintrevo.cylon.opencv.LoadNative")
+  //NativeUtils.loadOpenCVLibFromJar()
+
+  var inputRawImage: BufferedImage = _
+  var inputMarkupImage: Option[BufferedImage] = _
+  var outputMarkupImage: BufferedImage = _
+
+  var mat: Mat = _
+  //val mat: Mat = bufferedImageToMat(inputRawImage)
+
+  def bufferedImageToMat(bi: BufferedImage): Unit = {
+    // https://stackoverflow.com/questions/14958643/converting-bufferedimage-to-mat-in-opencv
+    mat= new Mat(bi.getHeight, bi.getWidth, CvType.CV_8UC3)
+    val data = bi.getRaster.getDataBuffer.asInstanceOf[DataBufferByte].getData
+    mat.put(0, 0, data)
+
+  }
+
+  var faceRects: Array[MatOfRect] = _
+
+  var faceXmlPaths: Array[String] = _
+  var cascadeColors: Array[Color] = _
+  var cascadeNames: Array[String] = _
+  var faceCascades: Array[CascadeClassifier] = _
+
+  def initCascadeFilters(paths: Array[String], colors: Array[Color], names: Array[String]): Unit = {
+    faceXmlPaths = paths
+    cascadeColors = colors
+    cascadeNames = names
+    //faceCascades = faceXmlPaths.map(s => new CascadeClassifier(s))
+    // disabled bc I'm just using this object to render some shit for a demo
+  }
+
+  def createFaceRects(): Array[MatOfRect] = {
+
+    var greyMat = new Mat();
+    var equalizedMat = new Mat()
+
+    // Convert matrix to greyscale
+    Imgproc.cvtColor(mat, greyMat, Imgproc.COLOR_RGB2GRAY)
+    // based heavily on https://chimpler.wordpress.com/2014/11/18/playing-with-opencv-in-scala-to-do-face-detection-with-haarcascade-classifier-using-a-webcam/
+    Imgproc.equalizeHist(greyMat, equalizedMat)
+
+    faceRects = (0 until faceCascades.length).map(i => new MatOfRect()).toArray // will hold the rectangles surrounding the detected faces
+
+    for (i <- faceCascades.indices){
+      faceCascades(i).detectMultiScale(equalizedMat, faceRects(i))
+    }
+    faceRects
+  }
+
+  def markupImage(faceRects: Array[MatOfRect]): Unit = {
+
+    val image: BufferedImage = inputMarkupImage match {
+      case img: Some[BufferedImage] => img.get
+      case _ => {
+        val matBuffer = new MatOfByte()
+        Imgcodecs.imencode(".jpg", mat, matBuffer)
+        ImageIO.read(new ByteArrayInputStream(matBuffer.toArray))
+      }
+
+    }
+
+    val graphics = image.getGraphics
+    graphics.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 18))
+
+    for (j <- faceRects.indices){
+      graphics.setColor(cascadeColors(j))
+      val name = cascadeNames(j)
+      val faceRectsList = faceRects(j).toList
+      for(i <- 0 until faceRectsList.size()) {
+        val faceRect = faceRectsList.get(i)
+        graphics.drawRect(faceRect.x, faceRect.y, faceRect.width, faceRect.height)
+        graphics.drawString(s"$name", faceRect.x, faceRect.y - 20)
+      }
+    }
+    outputMarkupImage = image
+  }
+
+  def process(image: BufferedImage): BufferedImage = {
+    bufferedImageToMat(image)
+    inputMarkupImage = Some(image)
+    initCascadeFilters(Array("/home/rawkintrevo/gits/opencv/data/haarcascades/haarcascade_profileface.xml",
+      "/home/rawkintrevo/gits/opencv/data/haarcascades/haarcascade_frontalface_default.xml",
+      "/home/rawkintrevo/gits/opencv/data/haarcascades/haarcascade_frontalface_alt.xml",
+      "/home/rawkintrevo/gits/opencv/data/haarcascades/haarcascade_frontalface_alt2.xml"),
+      Array(Color.RED, Color.GREEN, Color.BLUE, Color.CYAN),
+      Array("pf", "ff_default", "ff_alt", "ff_alt2")
+    )
+    markupImage(createFaceRects())
+    outputMarkupImage
   }
 }

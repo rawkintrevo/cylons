@@ -50,10 +50,11 @@ object SimpleFacialRecognitionApp {
     parser.parse(args, Config()) map { config =>
       logger.info("Local Engine Started")
 
-      val engine = new SimpleKafkaFacialRecognition("testTopic", "testKey")
+      val engine = new SimpleKafkaFacialRecognition("test", "test")
       engine.connectToSolr(config.solrURL)
       engine.loadEigenFacesAndColCenters(config.eigenfacesPath, config.colMeansPath)
       engine.cascadeFilterPath = config.cascadeFilterPath
+      engine.setupKafkaProducer()
       engine.inputPath = config.videoStreamURL
       engine.run()
       sys.exit(1)

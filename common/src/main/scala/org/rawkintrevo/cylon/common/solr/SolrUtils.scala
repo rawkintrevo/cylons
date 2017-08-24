@@ -6,12 +6,17 @@ import java.time.format.DateTimeFormatter
 import org.apache.solr.client.solrj.{SolrClient, SolrQuery}
 import org.apache.solr.client.solrj.SolrQuery.SortClause
 import org.apache.mahout.math.scalabindings.MahoutCollections._
+import org.apache.solr.client.solrj.impl.HttpSolrClient
 import org.apache.solr.client.solrj.response.QueryResponse
-import org.apache.solr.common.SolrInputDocument
+import org.apache.solr.common.{SolrDocument, SolrInputDocument}
 
 class CylonSolrClient {
 
   var solrClient: SolrClient = _
+
+  def connect(solrURL: String) = {
+    solrClient = new HttpSolrClient.Builder(solrURL).build()
+  }
 
   def eigenFaceQuery(v: org.apache.mahout.math.Vector): QueryResponse = {
     val query = new SolrQuery
@@ -37,5 +42,13 @@ class CylonSolrClient {
     solrClient.add(doc)
     solrClient.commit()
     humanName
+  }
+
+  def getDocsArray(response: QueryResponse): Array[SolrDocument] = {
+    val a = new Array[SolrDocument](response.getResults.size())
+    for (i <- 0 until response.getResults.size()) {
+      a(i) = response.getResults.get(i)
+    }
+    a
   }
 }

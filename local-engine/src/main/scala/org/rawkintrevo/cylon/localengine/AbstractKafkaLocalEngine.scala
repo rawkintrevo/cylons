@@ -3,7 +3,7 @@ package org.rawkintrevo.cylon.localengine
 import java.awt.image.BufferedImage
 import java.util.Properties
 
-import org.apache.kafka.clients.producer.KafkaProducer
+import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 
 trait AbstractKafkaLocalEngine extends AbstractLocalEngine{
 
@@ -14,7 +14,10 @@ trait AbstractKafkaLocalEngine extends AbstractLocalEngine{
 
   var producer: KafkaProducer[String, Array[Byte]]= _
 
-  def writeToKafka(topic: String, key: String, data: Array[Byte])
+  def writeToKafka(topic: String, key: String, data: Array[Byte]): Unit = {
+    val record = new ProducerRecord(topic, key, data)
+    producer.send(record)
+  }
 
   def setupKafkaProducer(): Unit = {
     producer = new KafkaProducer[String, Array[Byte]](kafkaProps)

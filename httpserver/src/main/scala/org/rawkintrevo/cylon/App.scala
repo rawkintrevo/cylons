@@ -96,6 +96,7 @@ object CylonHTTPServerObject {
           if (record.key() == droneName) {
             lastRelevantImage = record.value()
             val imageLength = lastRelevantImage.length
+            logger.info(s"Last Image length: ${imageLength}")
             if (imageLength == 0) logger.warn("Record length is 0")
 
           }
