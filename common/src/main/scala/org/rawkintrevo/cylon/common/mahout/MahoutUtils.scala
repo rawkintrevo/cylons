@@ -42,10 +42,11 @@ object MahoutUtils {
   }
 
   def decomposeImgVecWithEigenfaces(v: Vector, m: Matrix): Vector = {
-    // Basically just OLS- prob put the meancentering here too.
+
     val XtX = m.t %*% m
     val Xty = m.t %*% v
-    solve(XtX, Xty).viewPart(3, m.numCols()-3)
+    solve(XtX, Xty).viewPart(3, m.numCols()-3)  // The first 3 eigenfaces often only capture 3 dimensional light, which we want to ignore
+
   }
 
   def vector2byteArray(v: Vector): Array[Byte] = {

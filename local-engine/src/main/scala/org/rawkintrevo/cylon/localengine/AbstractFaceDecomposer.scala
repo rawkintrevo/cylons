@@ -1,9 +1,24 @@
 package org.rawkintrevo.cylon.localengine
 
 import org.apache.mahout.math.{DenseVector, Matrix, Vector}
+import org.apache.mahout.math._
+import org.apache.mahout.math.algorithms.preprocessing.MeanCenter
+import org.apache.mahout.math.decompositions._
+import org.apache.mahout.math.drm._
+import org.apache.mahout.math.scalabindings._
+import org.apache.mahout.math.Matrix
+import org.apache.mahout.math.scalabindings.RLikeOps._
+import org.apache.mahout.math.drm.DrmLike
+import org.apache.mahout.math.scalabindings.MahoutCollections._
+
+
+import org.apache.mahout.math.scalabindings._
+import org.apache.mahout.math.scalabindings.RLikeOps._
+
 import org.opencv.core.{Core, Mat, Size}
 import org.opencv.imgproc.Imgproc
 import org.opencv.videoio.VideoCapture
+
 import org.rawkintrevo.cylon.common.mahout.MahoutUtils
 import org.rawkintrevo.cylon.frameprocessors.{FaceDetectorProcessor, ImageUtils}
 
@@ -12,6 +27,9 @@ trait AbstractFaceDecomposer extends AbstractLocalEngine {
   var eigenfacesInCore: Matrix = _
   var colCentersV: Vector = _
   var cascadeFilterPath: String = _
+  var fastForward: Boolean = true
+
+  var includeMeta: Boolean = false
 
   def writeOutput(vec: Vector)
 
@@ -42,7 +60,9 @@ trait AbstractFaceDecomposer extends AbstractLocalEngine {
     // Init variables needed /////////////////////////////////////////////////////////////////////////////////////////
     var mat = new Mat()
 
+    var frame: Int = 0
     while (videoCapture.read(mat)) {
+      frame += 1
       val faceRects = FaceDetectorProcessor.createFaceRects(mat)
 
       val faceArray = faceRects.toArray
@@ -58,12 +78,40 @@ trait AbstractFaceDecomposer extends AbstractLocalEngine {
       })
 
       // Decompose Image into linear combo of eigenfaces (which were calulated offline)
-      val faceDecompVecArray: Array[Vector] = faceVecArray
-        .map(v => MahoutUtils.decomposeImgVecWithEigenfaces(v, eigenfacesInCore).minus(colCentersV))
+      var faceDecompVecArray: Array[Vector] = faceVecArray
+        .map(v => MahoutUtils.decomposeImgVecWithEigenfaces(v.minus(colCentersV), eigenfacesInCore))
 
-      for (vec <- faceDecompVecArray) {
-        writeOutput(vec)
+
+
+      if (includeMeta) {
+        val metaArray: Array[Array[Double]] = faceArray.map(r => Array(r.height.toDouble,
+          r.width.toDouble,
+          r.x.toDouble,
+          r.y.toDouble,
+          frame.toDouble))
+
+        for (i <- faceDecompVecArray.indices){
+          val tmp: Array[Double] = faceDecompVecArray(i).toArray
+          val tmp2: Array[Double] = metaArray(i) ++ tmp
+          faceDecompVecArray(i) = dvec( tmp2 )
+        }
       }
+
+      logger.info(s"detected ${faceDecompVecArray.length} faces")
+      for (vec <- faceDecompVecArray) {
+          writeOutput(vec)
+      }
+
+      if (fastForward) {
+        // https://stackoverflow.com/questions/21066875/opencv-constants-captureproperty
+        // this doesn't appear to work for the indian TV test video
+        val CV_CAP_PROP_FRAME_COUNT =7
+        val ff_frame: Double = videoCapture.get(CV_CAP_PROP_FRAME_COUNT)
+        val CV_CAP_PROP_POS_FRAMES     =1
+        // Fast Forward to Latest Frame
+        videoCapture.set(CV_CAP_PROP_POS_FRAMES,ff_frame - 1)
+      }
+
     }
 
   }

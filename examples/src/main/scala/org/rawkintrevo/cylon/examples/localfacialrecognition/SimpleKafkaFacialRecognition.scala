@@ -51,12 +51,7 @@ class SimpleKafkaFacialRecognition(topic: String, key: String)
 
     while (videoCapture.read(mat)) {
 
-      // https://stackoverflow.com/questions/21066875/opencv-constants-captureproperty
-      val CV_CAP_PROP_FRAME_COUNT    =7
-      val CV_CAP_PROP_POS_FRAMES     =1
-      // Fast Forward to Latest Frame
-      val frame = videoCapture.get(CV_CAP_PROP_FRAME_COUNT)
-      videoCapture.set(CV_CAP_PROP_POS_FRAMES,frame-1)
+
 
       val faceRects = FaceDetectorProcessor.createFaceRects(mat)
 

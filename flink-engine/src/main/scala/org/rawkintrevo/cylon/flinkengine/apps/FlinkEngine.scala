@@ -1,4 +1,4 @@
-package org.rawkintrevo.cylon.flinkengine
+package org.rawkintrevo.cylon.flinkengine.apps
 
 /**
  * Licensed to the Apache Software Foundation (ASF) under one
@@ -18,47 +18,15 @@ package org.rawkintrevo.cylon.flinkengine
  * limitations under the License.
  */
 
-
-import java.awt.image.{BufferedImage, DataBufferByte}
-import java.io.{ByteArrayInputStream, ByteArrayOutputStream, FileInputStream, ObjectInputStream}
+import java.awt.image.BufferedImage
 import java.util.Properties
-import javax.imageio.ImageIO
 
-import org.apache.flink.api.common.functions.RichMapFunction
-import org.apache.flink.api.common.typeinfo.TypeInformation
-import org.apache.flink.configuration.Configuration
 import org.apache.flink.streaming.api.scala._
 import org.apache.flink.streaming.connectors.kafka.{FlinkKafkaConsumer010, FlinkKafkaProducer010}
-import org.apache.flink.streaming.util.serialization.{KeyedDeserializationSchema, KeyedSerializationSchema}
-import org.apache.mahout.math._
-import org.apache.mahout.math.algorithms.preprocessing.MeanCenter
-import org.apache.mahout.math.decompositions._
-import org.apache.mahout.math.drm._
-import org.apache.mahout.math.scalabindings._
-import org.apache.mahout.math.Matrix
-import org.apache.mahout.math.drm.DrmLike
-import org.apache.mahout.math.scalabindings.MahoutCollections._
-// import org.rawkintrevo.cylon.MahoutUtils
-//import org.rawkintrevo.cylon.flink.KeyedBufferedImageSchema
+import org.rawkintrevo.cylon.flinkengine.schemas.KeyedBufferedImageSchema
 
-import org.rawkintrevo.cylon.frameprocessors.FaceDetectorProcessor
-import org.slf4j.{Logger, LoggerFactory}
-import scopt.OptionParser
-
-object FlinkEngine {
+object Basic {
   def main(args: Array[String]) {
-
-    def matrixReader(path: String): List[Array[Double]] ={
-      val ois = new ObjectInputStream(new FileInputStream(path))
-      // for row in matrix
-      val m = ois.readObject.asInstanceOf[List[Array[Double]]]
-      ois.close
-      m
-    }
-
-    def listArrayToMatrix(la: List[Array[Double]]): Matrix = {
-      dense(la.map(m => dvec(m)):_*)
-    }
 
     case class Config(
 
@@ -95,14 +63,6 @@ object FlinkEngine {
 
       env.setParallelism(config.parallelism) // Changing paralellism increases throughput but really jacks up the video output.
 
-      val eigenfacesListArray = matrixReader("/home/rawkintrevo/gits/cylon-blog/data/eigenfaces/eigenfaces.mmat")
-      val pixelCentersListArray = matrixReader("/home/rawkintrevo/gits/cylon-blog/data/eigenfaces/colMeans.mmat")
-
-      val eigenfacesDS = env.fromCollection(eigenfacesListArray)
-      // todo coMap this then broadcast it- makes all elements available to other stream.
-
-      //val bcEigenfacesListArray = env.fromElements(eigenfacesListArray)
-
       val properties = new Properties()
       properties.setProperty("bootstrap.servers", config.bootStrapServers)
       properties.setProperty("group.id", "flink")
@@ -120,43 +80,12 @@ object FlinkEngine {
 
       val stream = env
         .addSource(rawVideoConsumer)
-        .map(new RichMapFunction[(String, BufferedImage), (String, BufferedImage)]() {
-
-          var broadcastEigenfacesLA: Traversable[List[Array[Double]]] = null
-
-          override def open(config: Configuration): Unit = {
-            // 3. Access the broadcasted DataSet as a Collection
-
-            import scala.collection.JavaConverters._
-            broadcastEigenfacesLA = getRuntimeContext.getBroadcastVariable[List[Array[Double]]]("bcEigenfacesListArray").asScala
-          }
-
-          def map(record: (String, BufferedImage)): (String, BufferedImage) = {
-            val key = record._1
-            val image = record._2
-
-            //        val eigenFacesInStream = eigenfacesListArray
-            val efLA: List[Array[Double]] = broadcastEigenfacesLA.toList(0)
-            val eigenfacesIncore: Matrix = dense(efLA.map(m => dvec(m)):_*)
-            val pixelCentersVec: Vector = dense(pixelCentersListArray.map(m => dvec(m)):_*).viewRow(0)
-
-            // Get FaceRects
-
-            // Scale Images to h,w
-
-            // Use OLS to decompose faceRects
-
-            // Query Solr for match
-
-            // If matched- mark up output image with ...
-
-            // If no match- add to solr (should have a match pretty soon)
-            (key, FaceDetectorProcessor.process(image))
-          }
-
-        })
+        .map(record => {
+          val key = record._1
+          val image = record._2
+          (key, image)
+        } )
         .addSink(kafkaProducer)
-        .withBroadcastSet(bcEigenfacesListArray, "bcEigenfacesListArray")
 
       // execute program
       env.execute("Flink Cam Markup Engine Demo")
@@ -169,49 +98,7 @@ object FlinkEngine {
 }
 
 
-  // Move this to Flink engine and import, we'll need it in real life.
-class KeyedBufferedImageSchema
-  extends KeyedDeserializationSchema[(String, BufferedImage)]
-    with KeyedSerializationSchema[(String, BufferedImage)] {
 
-  val logger: Logger = LoggerFactory.getLogger(classOf[KeyedBufferedImageSchema])
-
-  def isEndOfStream(nextElement: (String, BufferedImage)): Boolean = {
-    false
-  }
-
-  def getProducedType: TypeInformation[(String, BufferedImage)] = createTypeInformation[(String, BufferedImage)]
-
-  def deserialize(messageKey: Array[Byte],
-                  message: Array[Byte],
-                  topic: String,
-                  partition: Int,
-                  offset: Long): (String, BufferedImage) = {
-    val img = ImageIO.read(new ByteArrayInputStream(message))
-    (new String(messageKey, "UTF-8"), img)
-  }
-
-  override def serializeKey(t: (String, BufferedImage)): Array[Byte] =  {
-    t._1.getBytes("UTF-8")
-  }
-
-  override def serializeValue(t: (String, BufferedImage)): Array[Byte] =  {
-    val baos = new ByteArrayOutputStream()
-    ImageIO.write(t._2, "jpg", baos)
-    baos.toByteArray
-  }
-
-  override def getTargetTopic(t: (String, BufferedImage)): String = {
-    /** Says in the code comments this is supposed to be optional:
-      * https://github.com/apache/flink/blob/master/flink-connectors/flink-connector-kafka-base/src/main/java/org/apache/flink/streaming/util/serialization/KeyedSerializationSchema.java#L49
-      *
-      * Found here that we're never using it anyway so return null
-      * https://github.com/apache/flink/blob/master/flink-connectors/flink-connector-kafka-base/src/main/java/org/apache/flink/streaming/util/serialization/TypeInformationKeyValueSerializationSchema.java#L179
-      */
-    null
-  }
-
-}
 
 
 //object FaceDetectorProcessor extends Serializable {

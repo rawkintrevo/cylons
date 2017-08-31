@@ -1,4 +1,4 @@
-package org.rawkintrevo.cylon.examples
+package org.rawkintrevo.cylon.examples.flink
 
 import org.rawkintrevo.cylon.localengine.KafkaFaceDecomposer
 import org.slf4j.{Logger, LoggerFactory}
@@ -6,7 +6,7 @@ import org.slf4j.{Logger, LoggerFactory}
 /**
  * @author ${user.name}
  */
-object FacesToVectorsApp {
+object MetaDataToDisk {
   val logger: Logger = LoggerFactory.getLogger(classOf[App])
 
   def main(args : Array[String]) {
@@ -50,7 +50,8 @@ object FacesToVectorsApp {
     parser.parse(args, Config()) map { config =>
       logger.info("Local Engine Started")
 
-      val engine = new KafkaFaceDecomposer("testTopic", "testKey")
+      val engine = new KafkaFaceDecomposer("flink-test-topic", "testKey")
+      engine.setupKafkaProducer()
       engine.includeMeta = true
       engine.connectToSolr(config.solrURL)
       engine.loadEigenFacesAndColCenters(config.eigenfacesPath, config.colMeansPath)

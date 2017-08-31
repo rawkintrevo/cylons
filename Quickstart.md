@@ -17,6 +17,22 @@ Set `OPEN_CV` env variable
 	
 	export OPEN_CV=/path/to/your/opencv
 
+Here's a recipe that may be for success or doom?
+	
+	git clone http://github.com/opencv/opencv
+	cd opencv
+	mkdir build
+	cd build
+	cmake ../
+  
+and once that all works
+  
+	cd ../
+	cd platforms
+	cd maven
+	mvn clean install -DskipTests
+
+
 ### Build Cylon
 
 	git clone https://github.com/rawkintrevo/cylons
