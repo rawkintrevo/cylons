@@ -28,7 +28,7 @@ object FaceDetectorDemo extends FrameProcessor with Serializable {
 
   def createFaceRects(): Array[MatOfRect] = {
 
-    val equalizedMat = ImageUtils.grayAndEqualizeMat(mat)
+    val equalizedMat = OpenCVImageUtils.grayAndEqualizeMat(mat)
 
     faceRects = (0 until faceCascades.length).map(i => new MatOfRect()).toArray // will hold the rectangles surrounding the detected faces
 
@@ -67,7 +67,7 @@ object FaceDetectorDemo extends FrameProcessor with Serializable {
   }
 
   def process(image: BufferedImage): BufferedImage = {
-    mat = ImageUtils.bufferedImageToMat(image)
+    mat = OpenCVImageUtils.bufferedImageToMat(image)
     inputMarkupImage = Some(image)
     initCascadeFilters(Array("/home/rawkintrevo/gits/opencv/data/haarcascades/haarcascade_profileface.xml",
       "/home/rawkintrevo/gits/opencv/data/haarcascades/haarcascade_frontalface_default.xml",

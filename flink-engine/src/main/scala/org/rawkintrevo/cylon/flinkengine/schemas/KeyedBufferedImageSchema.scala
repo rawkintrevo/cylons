@@ -37,8 +37,11 @@ class KeyedBufferedImageSchema
 
   override def serializeValue(t: (String, BufferedImage)): Array[Byte] =  {
     val baos = new ByteArrayOutputStream()
-    ImageIO.write(t._2, "jpg", baos)
-    baos.toByteArray
+    ImageIO.write(t._2, "png", baos)
+    baos.flush()
+    val out = baos.toByteArray
+    baos.close()
+    out
   }
 
   override def getTargetTopic(t: (String, BufferedImage)): String = {

@@ -7,7 +7,7 @@ import javax.imageio.ImageIO
 trait AbstractKafkaImageBroadcaster extends AbstractKafkaLocalEngine {
 
 
-  def writeBufferedImageToKafka(topic: String, key: String, img: BufferedImage): Unit = {
+  def writeBufferedImage(topic: String, key: String, img: BufferedImage): Unit = {
     val baos = new ByteArrayOutputStream
     ImageIO.write(img, "jpg", baos)
     writeToKafka(topic, key, baos.toByteArray)

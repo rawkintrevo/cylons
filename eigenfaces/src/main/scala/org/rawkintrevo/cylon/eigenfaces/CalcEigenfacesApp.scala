@@ -11,7 +11,7 @@ import org.apache.mahout.math.scalabindings._
 import org.apache.mahout.sparkbindings._
 import org.apache.spark.{SparkConf, SparkContext}
 import org.rawkintrevo.cylon.common.mahout.MahoutUtils
-import org.rawkintrevo.cylon.frameprocessors.ImageUtils
+import org.rawkintrevo.cylon.frameprocessors.OpenCVImageUtils
 
 object CalcEigenfacesApp {
   def main(args: Array[String]): Unit = {
@@ -66,7 +66,7 @@ object CalcEigenfacesApp {
 
       val imagesRDD: DrmRdd[Int] = sc.binaryFiles(config.inputDirectory + "/*/*", par)
         .map(o => new DenseVector(
-          ImageUtils.bufferedImageToDoubleArray(
+          OpenCVImageUtils.bufferedImageToDoubleArray(
             ImageIO.read(new ByteArrayInputStream(o._2.toArray())))))
         .zipWithIndex
         .map(o => (o._2.toInt, o._1)) // Make the Index the first value of the tuple

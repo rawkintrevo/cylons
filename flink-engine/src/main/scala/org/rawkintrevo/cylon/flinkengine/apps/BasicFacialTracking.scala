@@ -18,14 +18,19 @@ package org.rawkintrevo.cylon.flinkengine.apps
  * limitations under the License.
  */
 
+import java.awt.Color
+import java.awt.image.BufferedImage
 import java.util.Properties
 
+import org.apache.flink.api.common.functions.JoinFunction
 import org.apache.flink.api.java.tuple.Tuple
 import org.apache.flink.api.java.utils.ParameterTool
+import org.apache.flink.streaming.api.TimeCharacteristic
+import org.apache.flink.streaming.api.functions.AscendingTimestampExtractor
 import org.apache.flink.streaming.api.operators.TwoInputStreamOperator
 import org.apache.flink.streaming.api.scala._
 import org.apache.flink.streaming.api.scala.function.WindowFunction
-import org.apache.flink.streaming.api.windowing.assigners.{SlidingEventTimeWindows, SlidingProcessingTimeWindows}
+import org.apache.flink.streaming.api.windowing.assigners.{SlidingEventTimeWindows, SlidingProcessingTimeWindows, TumblingEventTimeWindows, TumblingProcessingTimeWindows}
 import org.apache.flink.streaming.api.windowing.time.Time
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow
 import org.apache.flink.streaming.connectors.fs.bucketing.BucketingSink
@@ -35,11 +40,14 @@ import org.apache.mahout.math.algorithms.clustering.CanopyFn
 import org.apache.mahout.math.{DenseVector, Matrix, Vector}
 import org.apache.mahout.math.algorithms.common.distance.Cosine
 import org.apache.mahout.math.scalabindings._
-import org.rawkintrevo.cylon.flinkengine.schemas.{KeyedBufferedImageSchema, MahoutVectorAndCoordsSchema}
-import org.rawkintrevo.cylon.flinkengine.windowfns.{CanopyWindowFunction, CanopyAssignmentCoProcessFunction}
+import org.rawkintrevo.cylon.flinkengine.coprocessfns.MarkupBufferedImagesWithDecomposedFacesCoProcessFunction
+import org.rawkintrevo.cylon.flinkengine.processfns.MergeImagesProcessFunction
+import org.rawkintrevo.cylon.flinkengine.schemas.{KeyedBufferedImageSchema, KeyedFrameBufferedImageSchema, MahoutVectorAndCoordsSchema}
+import org.rawkintrevo.cylon.flinkengine.windowfns._
+import org.rawkintrevo.cylon.frameprocessors.OpenCVImageUtils
 import org.slf4j.{Logger, LoggerFactory}
 
-
+// http://localhost:8090/cylon/cam/test-flink/flink-cluster-cam
 
 object BasicFacialTracking {
   def main(args: Array[String]) {
@@ -48,11 +56,9 @@ object BasicFacialTracking {
 
 
     case class Config(
-
-                       bootStrapServers: String = "localhost:9092",
-                       inputTopic: String = "flink",
-                       outputTopic: String = "test-flink",
-                       droneName: String = "test",
+                       bootStrapServers: String,
+                       inputTopic: String,
+                       outputTopic: String,
                        parallelism: Int = 1
                      )
 
@@ -66,7 +72,7 @@ object BasicFacialTracking {
       },
         inputTopic = params.has("inputTopic") match {
           case true => params.get("inputTopic")
-          case false => "flink-test-topic"
+          case false => "testTopic"
         },
         outputTopic = params.has("outputTopic") match {
           case true => params.get("outputTopic")
@@ -75,18 +81,27 @@ object BasicFacialTracking {
 
       logger.info(s"bootStrapServers: ${config.bootStrapServers}\ninputTopic: ${config.inputTopic}")
 
+      env.setStreamTimeCharacteristic(TimeCharacteristic.ProcessingTime)
       //env.setParallelism(config.parallelism) // Changing paralellism increases throughput but really jacks up the video output.
 
       val properties = new Properties()
       properties.setProperty("bootstrap.servers", config.bootStrapServers)
       properties.setProperty("group.id", "flink")
 
-      val rawVideoConsumer: FlinkKafkaConsumer010[(String, Int, Int, Int, Int, Int, Vector)] =
+      // Load DecomposedFaces
+      val vectorAndMetaDataSource: FlinkKafkaConsumer010[(String, Int, Int, Int, Int, Int, Vector)] =
         new FlinkKafkaConsumer010[(String, Int, Int, Int, Int, Int, Vector)](config.inputTopic,
         new MahoutVectorAndCoordsSchema(),
         properties)
 
-      rawVideoConsumer.setStartFromLatest()
+      // Load RawImages
+      val rawImageSource: FlinkKafkaConsumer010[((String, Int), BufferedImage)] =
+        new FlinkKafkaConsumer010[((String, Int), BufferedImage)](config.inputTopic + "-raw_image",
+        new KeyedFrameBufferedImageSchema(),
+        properties)
+
+      vectorAndMetaDataSource.setStartFromLatest()
+      rawImageSource.setStartFromLatest()
 
       val kafkaProducer = new FlinkKafkaProducer010(
         config.outputTopic, // topic
@@ -94,145 +109,75 @@ object BasicFacialTracking {
         properties)
 
 
-      val stream = env
-        .addSource(rawVideoConsumer)
+      val vectorAndMetaDataStream: DataStream[DecomposedFace] = env
+        .addSource(vectorAndMetaDataSource)
         .map(record => {
-          DecomposedFace(s"${record._1}_${record._6}", record._2, record._3, record._4, record._5, record._6, record._7)
-        } )
+          DecomposedFace(s"${record._1}" // key
+            , record._2 // h
+            , record._3 // w
+            , record._4 // x
+            , record._5 // y
+            , record._6 // frame
+            , record._7
+            , dvec(record._4.toDouble + (record._3 /2), record._5.toDouble + (record._2 /2), record._6.toDouble))
+        } ).name("Vector and Metadata Source")
+
 
       /*  This stream generates Canopy Centers- the results are a Matrix which is broadcasted
       *   and can be used to cluster faces as they arrive.
       */
-      val canopyStream: DataStream[(String, Matrix)] = stream.map(face => (face.key, dvec(face.x, face.y, face.frame)))
+      val canopyStream: DataStream[(String, Matrix)] = vectorAndMetaDataStream
+        .assignTimestampsAndWatermarks(new AscendingTimestampExtractor[DecomposedFace] {
+          def extractAscendingTimestamp(element: DecomposedFace): Long = System.currentTimeMillis() / 1000L
+        })
+        .map(face => (face.key, face))
         .keyBy(0)
-        .window(SlidingEventTimeWindows.of(Time.seconds(10), Time.seconds(1)))
-        .apply(new CanopyWindowFunction())
+        .window(SlidingProcessingTimeWindows.of(Time.seconds(2), Time.milliseconds(250)))
+        .apply(new CanopyWindowFunction()).name("Fit Canopy Clustering")
 
 
     // One stream will be windowed over, say 10 seconds, and identify unique faces (smoothing)
     // E.g. in -> 10 frames, with 17 face rects.  out -> 17 faceRects with "cluster ID" added.
     // val clusteredStream = stream
 
-    stream.connect(canopyStream)
-      .process(new CanopyAssignmentCoProcessFunction())
+    val clusteredStream: DataStream[(String, DecomposedFace)] = vectorAndMetaDataStream
+      .connect(canopyStream)
+      .process(new CanopyAssignmentCoProcessFunction()).name("apply Clusters")
+      // Key: String, DecomposedFace, Cluster: Int
+
+    val rawImageStream: DataStream[((String, Int), BufferedImage)] = env
+      .addSource(rawImageSource).name("Raw Image Source")
+
+//    rawImageStream.map(t => (t._1._1, t._2))
+//      .addSink(kafkaProducer).name(s"http://localhost:8090/cylon/cam/${config.outputTopic}/flink-cluster-cam")
 
 
+    val imageMarkupStream = clusteredStream
+      .connect(rawImageStream)
+      .process(new MarkupBufferedImagesWithDecomposedFacesCoProcessFunction(100
+                                                      , true)).name("join buffered images")
+
+    val filteredClusterStream = clusteredStream
+      .keyBy(0)
+      .window(TumblingProcessingTimeWindows.of(Time.seconds(2)))
+      .apply(new FilterOutlierClusters(2)).name("filter clusters of less than 2 occurances")
 
 
+    val filteredImageMarkupStream = filteredClusterStream
+      .connect(rawImageStream)
+      .process(new MarkupBufferedImagesWithDecomposedFacesCoProcessFunction(100
+        , true)).name("join filtered buffered images")
 
-    // One stream will take identified faces, either recognize them or add them to Solr (next episode)
 
+    // execute program
 
+    imageMarkupStream.map(t => (t._1, t._2, 1))
+      .union(rawImageStream.map(t => (t._1, t._2, 0)))
+      .union(filteredImageMarkupStream.map(t => (t._1, t._2, 3)))
+      .process(new MergeImagesProcessFunction(3, "flink-cam"))
+      .addSink(kafkaProducer).name("http://localhost:8090/cylon/cam/test-flink/flink-cam")
 
-      // execute program
-      env.execute("Flink Count Rects in Frame Demo")
+    env.execute("Flink Basic Facial Tracking Demo")
 
   }
 }
-
-case class DecomposedFace(key: String
-                          ,h : Int
-                          ,w : Int
-                          ,x : Int
-                          ,y : Int
-                          ,frame : Int
-                          ,v : Vector)
-
-
-
-
-//object FaceDetectorProcessor extends Serializable {
-//
-////  //System.loadLibrary(Core.NATIVE_LIBRARY_NAME)
-////  Class.forName("org.rawkintrevo.cylon.opencv.LoadNative")
-////  //NativeUtils.loadOpenCVLibFromJar()
-////
-////  var inputRawImage: BufferedImage = _
-////  var inputMarkupImage: Option[BufferedImage] = _
-////  var outputMarkupImage: BufferedImage = _
-////
-////  var mat: Mat = _
-////  //val mat: Mat = bufferedImageToMat(inputRawImage)
-////
-////  def bufferedImageToMat(bi: BufferedImage): Unit = {
-////    // https://stackoverflow.com/questions/14958643/converting-bufferedimage-to-mat-in-opencv
-////    mat= new Mat(bi.getHeight, bi.getWidth, CvType.CV_8UC3)
-////    val data = bi.getRaster.getDataBuffer.asInstanceOf[DataBufferByte].getData
-////    mat.put(0, 0, data)
-////
-////  }
-//
-//  var faceRects: Array[MatOfRect] = _
-//
-//  var faceXmlPaths: Array[String] = _
-//  var cascadeColors: Array[Color] = _
-//  var cascadeNames: Array[String] = _
-//  var faceCascades: Array[CascadeClassifier] = _
-//
-//  def initCascadeFilters(paths: Array[String], colors: Array[Color], names: Array[String]): Unit = {
-//    faceXmlPaths = paths
-//    cascadeColors = colors
-//    cascadeNames = names
-//    faceCascades = faceXmlPaths.map(s => new CascadeClassifier(s))
-//  }
-//
-//  def createFaceRects(): Array[MatOfRect] = {
-//
-//    var greyMat = new Mat();
-//    var equalizedMat = new Mat()
-//
-//    // Convert matrix to greyscale
-//    Imgproc.cvtColor(mat, greyMat, Imgproc.COLOR_RGB2GRAY)
-//    // based heavily on https://chimpler.wordpress.com/2014/11/18/playing-with-opencv-in-scala-to-do-face-detection-with-haarcascade-classifier-using-a-webcam/
-//    Imgproc.equalizeHist(greyMat, equalizedMat)
-//
-//    faceRects = (0 until faceCascades.length).map(i => new MatOfRect()).toArray // will hold the rectangles surrounding the detected faces
-//
-//    for (i <- faceCascades.indices){
-//      faceCascades(i).detectMultiScale(equalizedMat, faceRects(i))
-//    }
-//    faceRects
-//  }
-//
-//  def markupImage(faceRects: Array[MatOfRect]): Unit = {
-//
-//    val image: BufferedImage = inputMarkupImage match {
-//      case img: Some[BufferedImage] => img.get
-//      case _ => {
-//        val matBuffer = new MatOfByte()
-//        Imgcodecs.imencode(".jpg", mat, matBuffer)
-//        ImageIO.read(new ByteArrayInputStream(matBuffer.toArray))
-//      }
-//
-//    }
-//
-//    val graphics = image.getGraphics
-//    graphics.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 18))
-//
-//    for (j <- faceRects.indices){
-//      graphics.setColor(cascadeColors(j))
-//      val name = cascadeNames(j)
-//      val faceRectsList = faceRects(j).toList
-//      for(i <- 0 until faceRectsList.size()) {
-//        val faceRect = faceRectsList.get(i)
-//        graphics.drawRect(faceRect.x, faceRect.y, faceRect.width, faceRect.height)
-//        graphics.drawString(s"$name", faceRect.x, faceRect.y - 20)
-//      }
-//    }
-//    outputMarkupImage = image
-//  }
-//
-//  def process(image: BufferedImage): BufferedImage = {
-//    bufferedImageToMat(image)
-//    inputMarkupImage = Some(image)
-//    initCascadeFilters(Array("/home/rawkintrevo/gits/opencv/data/haarcascades/haarcascade_profileface.xml",
-//      "/home/rawkintrevo/gits/opencv/data/haarcascades/haarcascade_frontalface_default.xml",
-//      "/home/rawkintrevo/gits/opencv/data/haarcascades/haarcascade_frontalface_alt.xml",
-//      "/home/rawkintrevo/gits/opencv/data/haarcascades/haarcascade_frontalface_alt2.xml"),
-//      Array(Color.RED, Color.GREEN, Color.BLUE, Color.CYAN),
-//      Array("pf", "ff_default", "ff_alt", "ff_alt2")
-//    )
-//    markupImage(createFaceRects())
-//    outputMarkupImage
-//  }
-//}

@@ -19,47 +19,54 @@ import org.apache.mahout.math.scalabindings.MahoutCollections._
 
 import scala.collection.JavaConversions._
 import org.apache.mahout.math.algorithms.clustering.CanopyFn
-import org.apache.mahout.math.algorithms.common.distance.Cosine
+import scala.org.rawkintrevo.cylon.common.mahout.DistanceMetricSelector
+import org.slf4j.{Logger, LoggerFactory}
 
-class CanopyWindowFunction extends WindowFunction[(String, DenseVector),
+
+
+class CanopyWindowFunction extends WindowFunction[(String, DecomposedFace),
   (String, Matrix),
   Tuple,
   TimeWindow] {
 
+  val logger: Logger = LoggerFactory.getLogger(classOf[CanopyWindowFunction])
+
+  val dm = DistanceMetricSelector.select(DistanceMetricSelector.namedMetricLookup('Euclidean))
   def apply(key: org.apache.flink.api.java.tuple.Tuple,
             window: TimeWindow,
-            input: Iterable[(String, DenseVector)],
+            input: Iterable[(String, DecomposedFace)],
             out: Collector[(String, Matrix)]) {
 
-    val incoreMat = dense(input.toArray.map(t => t._2))
-    val centers = CanopyFn.findCenters(incoreMat, Cosine, 0.1, 0.5)
-    out.collect((key(0), centers))
+    val t1 = input.toArray.map(t => Math.min(t._2.w, t._2.h)).min
+    val t2 = input.toArray.map(t => Math.max(t._2.w, t._2.h)).max
+    val incoreMat = dense(input.toArray.map(t => t._2.metaVec))
+    val centers: Matrix = CanopyFn.findCenters(incoreMat, dm, t1, t2)
+
+    out.collect((key.getField(0), centers))
   }
 }
 
 
-case class DecomposedFace(key: String
-                          ,h : Int
-                          ,w : Int
-                          ,x : Int
-                          ,y : Int
-                          ,frame : Int
-                          ,v : Vector)
 
 
-class CanopyAssignmentCoProcessFunction extends CoProcessFunction[DecomposedFace,
-  (String,Matrix),
-  (Integer, Vector)] {
+
+class CanopyAssignmentCoProcessFunction extends CoProcessFunction[
+  DecomposedFace,
+  (String, Matrix),
+  (String, DecomposedFace)] {
+  //Tuple] {
 
   var workingCanopyMatrix: Option[Matrix] = None
-
+  var canopyMatricesRecieved = 0
+  val dm = DistanceMetricSelector.select(DistanceMetricSelector.namedMetricLookup('Euclidean))
   def processElement1(in1: DecomposedFace,
-    context: CoProcessFunction[DecomposedFace, (String, Matrix), (Integer, Vector)]#Context,
-    collector: Collector[(Integer, Vector)]): Unit = {
-    workingCanopyMatrix match {
+    context: CoProcessFunction[DecomposedFace, (String, Matrix), (String, DecomposedFace)]#Context,
+    collector: Collector[(String, DecomposedFace)]): Unit = {
+
+    val newCluster = workingCanopyMatrix match {
       case Some(m) => {
         val cluster: Int = (0 until m.nrow).foldLeft(-1, 9999999999999999.9)((l, r) => {
-          val dist = Cosine.distance(m(r, ::), in1.v)
+          val dist = dm.distance(m(r, ::), in1.metaVec)
           if ((dist) < l._2) {
             (r, dist)
           }
@@ -71,12 +78,16 @@ class CanopyAssignmentCoProcessFunction extends CoProcessFunction[DecomposedFace
       }
       case None => -1  // If the workingCanopyMatrix isn't warmed up yet- then assign everything to -1 cluster.
     }
+
+    collector.collect((in1.key, in1.copy(cluster = newCluster)))
   }
 
   def processElement2(in2: (String, Matrix),
-     context: CoProcessFunction[DecomposedFace, (String, Matrix), (Integer, Vector)]#Context,
-     collector: Collector[(Integer, Vector)]): Unit = {
+     context: CoProcessFunction[DecomposedFace, (String, Matrix), (String, DecomposedFace)]#Context,
+     collector: Collector[(String, DecomposedFace)]): Unit = {
     workingCanopyMatrix = Some(in2._2)
+    canopyMatricesRecieved += 1
+    //collector.collect("foo", DecomposedFace("foo", 0,0,0,0,0,dvec(0)), -1)
   }
 
 }

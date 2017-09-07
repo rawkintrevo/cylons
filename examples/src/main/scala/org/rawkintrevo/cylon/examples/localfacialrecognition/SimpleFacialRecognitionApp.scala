@@ -17,7 +17,8 @@ object SimpleFacialRecognitionApp {
                        solrURL: String = "",
                        videoStreamURL: String = "rtsp://192.168.100.1:554/cam1/mpeg4",
                        cascadeFilterPath: String = "",
-                       distanceTolerance: Double = 2000.0
+                       distanceTolerance: Double = 2000.0,
+                       rawImages: Boolean = false
                      )
 
 
@@ -44,6 +45,11 @@ object SimpleFacialRecognitionApp {
         .action((x, c) => c.copy(solrURL = x))
         .text("URL of Solr, e.g. http://localhost:8983/solr/cylonfaces")
 
+      opt[Boolean]('r', "rawImages").optional()
+        .action((x, c) => c.copy(rawImages = x))
+        .text("Emit a stream of raw images (usually for demo purposes).  Topic will be  assigned topic + '_raw_images', eg. test_raw_images")
+
+
       help("help").text("prints this usage text")
     }
 
@@ -56,6 +62,8 @@ object SimpleFacialRecognitionApp {
       engine.cascadeFilterPath = config.cascadeFilterPath
       engine.setupKafkaProducer()
       engine.inputPath = config.videoStreamURL
+      engine.writeBufferedImages = config.rawImages
+
       engine.run()
       sys.exit(1)
     } getOrElse{
