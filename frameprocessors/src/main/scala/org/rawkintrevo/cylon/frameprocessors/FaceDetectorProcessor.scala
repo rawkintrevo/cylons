@@ -19,7 +19,7 @@ object FaceDetectorProcessor extends Serializable {
 
   def createFaceRects(mat: Mat): MatOfRect = {
 
-    val equalizedMat = ImageUtils.grayAndEqualizeMat(mat)
+    val equalizedMat = OpenCVImageUtils.grayAndEqualizeMat(mat)
 
     val faceRects = new MatOfRect()
     cc.detectMultiScale(equalizedMat, faceRects)

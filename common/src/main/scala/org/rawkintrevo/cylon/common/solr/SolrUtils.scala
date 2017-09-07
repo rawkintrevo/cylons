@@ -10,7 +10,7 @@ import org.apache.solr.client.solrj.impl.HttpSolrClient
 import org.apache.solr.client.solrj.response.QueryResponse
 import org.apache.solr.common.{SolrDocument, SolrInputDocument}
 
-class CylonSolrClient {
+class CylonSolrClient extends Serializable{
 
   var solrClient: SolrClient = _
 
@@ -34,13 +34,10 @@ class CylonSolrClient {
   }
 
   def insertNewFaceToSolr(v: org.apache.mahout.math.Vector): String = {
-    val doc = new SolrInputDocument()
+    // Kept for backwards compatability
     val humanName = "human-" + scala.util.Random.alphanumeric.take(5).mkString("").toUpperCase
-    doc.addField("name_s", humanName)
-    doc.addField("last_seen_pdt", ZonedDateTime.now.format(DateTimeFormatter.ISO_INSTANT)) // YYYY-MM-DDThh:mm:ssZ   DateTimeFormatter.ISO_INSTANT, ISO-8601
-    v.toMap.map { case (k, v) => doc.addField(s"e${k.toString}_d", v) }
-    solrClient.add(doc)
-    solrClient.commit()
+    addFaceToSolr(v, humanName)
+    commit()
     humanName
   }
 
@@ -50,5 +47,18 @@ class CylonSolrClient {
       a(i) = response.getResults.get(i)
     }
     a
+  }
+
+  def addFaceToSolr(v: org.apache.mahout.math.Vector, name: String): Unit = {
+    val doc = new SolrInputDocument()
+    doc.addField("name_s", name)
+    doc.addField("last_seen_pdt", ZonedDateTime.now.format(DateTimeFormatter.ISO_INSTANT)) // YYYY-MM-DDThh:mm:ssZ   DateTimeFormatter.ISO_INSTANT, ISO-8601
+    v.toMap.map { case (k, v) => doc.addField(s"e${k.toString}_d", v) }
+    solrClient.add(doc)
+    solrClient.commit()
+  }
+
+  def commit(): Unit = {
+    solrClient.commit()
   }
 }

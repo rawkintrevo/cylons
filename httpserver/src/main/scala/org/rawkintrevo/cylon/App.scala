@@ -91,6 +91,7 @@ object CylonHTTPServerObject {
       var lastRelevantImage = new Array[Byte](0)
 
       Ok().withBody(seconds.map(i => {
+        //val record = consumer.poll(milliSecondDelay).records(topic).iterator().toList.last
         for (record <- consumer.poll(milliSecondDelay).records(topic).iterator()) {
           // get the last image in queue that has correct key-value - i.e. drone-name
           if (record.key() == droneName) {
@@ -99,8 +100,10 @@ object CylonHTTPServerObject {
             logger.info(s"Last Image length: ${imageLength}")
             if (imageLength == 0) logger.warn("Record length is 0")
 
+          } else {
+            logger.info(s"passed up message with key: ${record.key()}")
           }
-        }
+        } // for loop
         "--frame\r\nContent-Type: image/jpeg\r\n\r\n".getBytes() ++
           lastRelevantImage ++
           "\r\n\r\n".getBytes()

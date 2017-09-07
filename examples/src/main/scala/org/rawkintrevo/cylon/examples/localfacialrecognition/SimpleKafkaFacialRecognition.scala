@@ -16,7 +16,7 @@ import org.opencv.objdetect.CascadeClassifier
 import org.opencv.videoio.VideoCapture
 import org.rawkintrevo.cylon.common.mahout.MahoutUtils
 import org.rawkintrevo.cylon.common.solr.CylonSolrClient
-import org.rawkintrevo.cylon.frameprocessors.{FaceDetectorProcessor, ImageUtils}
+import org.rawkintrevo.cylon.frameprocessors.{FaceDetectorProcessor, OpenCVImageUtils}
 import org.rawkintrevo.cylon.localengine.{AbstractKafkaImageBroadcaster, KafkaFaceDecomposer}
 
 class SimpleKafkaFacialRecognition(topic: String, key: String)
@@ -28,6 +28,7 @@ class SimpleKafkaFacialRecognition(topic: String, key: String)
 
   override def run(): Unit = {
     Class.forName("org.rawkintrevo.cylon.common.opencv.LoadNative")
+
 
     val videoCapture = new VideoCapture
     logger.info(s"Attempting to open video source at ${inputPath}")
@@ -51,12 +52,7 @@ class SimpleKafkaFacialRecognition(topic: String, key: String)
 
     while (videoCapture.read(mat)) {
 
-      // https://stackoverflow.com/questions/21066875/opencv-constants-captureproperty
-      val CV_CAP_PROP_FRAME_COUNT    =7
-      val CV_CAP_PROP_POS_FRAMES     =1
-      // Fast Forward to Latest Frame
-      val frame = videoCapture.get(CV_CAP_PROP_FRAME_COUNT)
-      videoCapture.set(CV_CAP_PROP_POS_FRAMES,frame-1)
+
 
       val faceRects = FaceDetectorProcessor.createFaceRects(mat)
 
@@ -68,7 +64,7 @@ class SimpleKafkaFacialRecognition(topic: String, key: String)
         val size: Size = new Size(250, 250)
         val resizeMat = new Mat(size, faceMat.`type`())
         Imgproc.resize(faceMat, resizeMat, size)
-        val faceVec = new DenseVector(ImageUtils.matToPixelArray(ImageUtils.grayAndEqualizeMat(resizeMat)))
+        val faceVec = new DenseVector(OpenCVImageUtils.matToPixelArray(OpenCVImageUtils.grayAndEqualizeMat(resizeMat)))
         faceVec
       })
 
@@ -107,7 +103,7 @@ class SimpleKafkaFacialRecognition(topic: String, key: String)
           val size: Size = new Size(250, 250)
           val resizeMat = new Mat(size, faceMat.`type`())
           Imgproc.resize(faceMat, resizeMat, size)
-          val faceVec = new DenseVector(ImageUtils.matToPixelArray(ImageUtils.grayAndEqualizeMat(resizeMat)))
+          val faceVec = new DenseVector(OpenCVImageUtils.matToPixelArray(OpenCVImageUtils.grayAndEqualizeMat(resizeMat)))
           faceVec
         })
 
@@ -236,9 +232,15 @@ class SimpleKafkaFacialRecognition(topic: String, key: String)
           FaceDetectorProcessor_v1.mat = mat
           FaceDetectorProcessor_v1.initCascadeFilters(Array(""), Array(Color.GREEN), Array(lastRecognizedHuman))
           FaceDetectorProcessor_v1.markupImage(Array(new MatOfRect(faceRects.rowRange(0,1))))
-          writeBufferedImageToKafka(topic, key, FaceDetectorProcessor_v1.outputMarkupImage)
+          writeBufferedImage(topic, key, FaceDetectorProcessor_v1.outputMarkupImage)
         }
 
+        if (writeBufferedImages) {
+          val matBuffer = new MatOfByte()
+          Imgcodecs.imencode(".jpg", mat, matBuffer)
+          val img: BufferedImage = ImageIO.read(new ByteArrayInputStream(matBuffer.toArray))
+          writeBufferedImage(topic, key + "_raw_image", img)
+        }
       }
     }
 
