@@ -125,7 +125,7 @@ under the License.
     <dependency>
       <groupId>org.apache.mahout</groupId>
       <artifactId>mahout-math</artifactId>
-      <version>0.13.0</version>
+      <version>0.13.1-SNAPSHOT</version>
     </dependency>
 
     <dependency>

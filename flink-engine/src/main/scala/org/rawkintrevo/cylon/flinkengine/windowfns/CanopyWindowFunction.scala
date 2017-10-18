@@ -54,7 +54,6 @@ class CanopyAssignmentCoProcessFunction extends CoProcessFunction[
   DecomposedFace,
   (String, Matrix),
   (String, DecomposedFace)] {
-  //Tuple] {
 
   var workingCanopyMatrix: Option[Matrix] = None
   var canopyMatricesRecieved = 0
