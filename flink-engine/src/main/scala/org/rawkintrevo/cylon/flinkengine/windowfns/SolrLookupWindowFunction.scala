@@ -25,7 +25,7 @@ class SolrLookupWindowFunction(solrURL :String,
 
     val dm = DistanceMetricSelector.select(DistanceMetricSelector.namedMetricLookup('Euclidean))
 
-    var seenFacesMap = scala.collection.mutable.Map[Int, DecomposedFace] = scala.collection.mutable.Map()
+    var seenFacesMap: scala.collection.mutable.Map[Int, DecomposedFace] = scala.collection.mutable.Map()
 
     var frames: Array[Int] = Array(0)
 
